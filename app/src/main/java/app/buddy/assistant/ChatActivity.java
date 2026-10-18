@@ -1033,13 +1033,9 @@ public class ChatActivity extends Screen implements ChatHub.Listener {
         links(tv, false);
     }
 
-    private static final java.util.regex.Pattern MD_LINK =
-            java.util.regex.Pattern.compile("\\[([^\\[\\]\\r\\n]+)\\]\\((https?://[^\\s()]+)\\)");
-
     /**
-     * Same as {@link #links(TextView)}; with markdown=true also turns [text](https://url) into a
-     * tappable link showing only the text. Linkify removes existing URLSpans, so it runs on the
-     * non-markdown segments separately and the markdown spans are added afterwards.
+     * Same as {@link #links(TextView)}; with markdown=true also turns [text](https://url) into a link
+     * showing only the text. Linkify drops existing URLSpans, so it runs on the plain parts separately.
      */
     private static void links(TextView tv, boolean markdown) {
         if (!markdown) {
@@ -1048,19 +1044,20 @@ public class ChatActivity extends Screen implements ChatHub.Listener {
             tv.setText(tv.getText()); // the mask applies on setText
             return;
         }
-        CharSequence src = tv.getText();
-        java.util.regex.Matcher m = MD_LINK.matcher(src);
         android.text.SpannableStringBuilder out = new android.text.SpannableStringBuilder();
-        int last = 0;
-        while (m.find()) {
-            appendLinkified(out, src, last, m.start());
-            int from = out.length();
-            out.append(m.group(1));
-            out.setSpan(new android.text.style.URLSpan(m.group(2)), from, out.length(),
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            last = m.end();
+        for (MarkdownLinks.Part part : MarkdownLinks.split(tv.getText())) {
+            if (part.url == null) {
+                android.text.SpannableString plain = new android.text.SpannableString(part.text);
+                android.text.util.Linkify.addLinks(plain,
+                        android.text.util.Linkify.WEB_URLS | android.text.util.Linkify.EMAIL_ADDRESSES);
+                out.append(plain);
+            } else {
+                int from = out.length();
+                out.append(part.text);
+                out.setSpan(new android.text.style.URLSpan(part.url), from, out.length(),
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
         }
-        appendLinkified(out, src, last, src.length());
         tv.setAutoLinkMask(0);
         tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
         tv.setLinkTextColor(ACCENT_TEXT);
@@ -1068,14 +1065,6 @@ public class ChatActivity extends Screen implements ChatHub.Listener {
         if (out.getSpans(0, out.length(), android.text.style.URLSpan.class).length > 0) {
             tv.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         }
-    }
-
-    private static void appendLinkified(android.text.SpannableStringBuilder out, CharSequence src, int start, int end) {
-        if (start >= end) return;
-        android.text.SpannableStringBuilder seg = new android.text.SpannableStringBuilder(src, start, end);
-        android.text.util.Linkify.addLinks(seg,
-                android.text.util.Linkify.WEB_URLS | android.text.util.Linkify.EMAIL_ADDRESSES);
-        out.append(seg);
     }
 
     private void copyOnLongPress(View v, String text) {
