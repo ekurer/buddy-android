@@ -63,3 +63,8 @@ android {
         buildConfig = false
     }
 }
+
+dependencies {
+    // JVM unit tests only (app/src/test); not packaged in the APK.
+    testImplementation("junit:junit:4.13.2")
+}
